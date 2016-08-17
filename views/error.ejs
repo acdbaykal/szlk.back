@@ -1,0 +1,12 @@
+<html>
+  <header>
+    <title>Error</title>
+  </header>
+  <h1><%= message %></h1>
+  <h2><%= error.status %></h2>
+  <%if(typeof error.stack === 'object' && error.stack instanceof Array){ %>
+      <pre><%= error.stack.reduce(function(prev, cur){
+        prev + "\n" + cur;
+      }) %></pre>
+  <%}%>
+</html>
