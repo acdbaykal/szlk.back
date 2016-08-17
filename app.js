@@ -1,16 +1,17 @@
-import express from 'express';
-import path from 'path';
-import favicon from 'serve-favicon';
-import logger from 'morgan';
-import cookieParser from 'cookie-parser';
-import bodyParser from 'body-parser';
-import routes from './routes/index';
-import translations from './routes/translations';
-import languages from './routes/languages';
-import DataConnectionFactory from './data_connection/MongooseDataConnection';
-import {readFileSync} from 'fs';
-import mongoose from 'mongoose';
-import mongoSanitize from 'express-mongo-sanitize';
+import express from 'express'
+import path from 'path'
+import favicon from 'serve-favicon'
+import logger from 'morgan'
+import cookieParser from 'cookie-parser'
+import bodyParser from 'body-parser'
+import routes from './routes/index'
+import translations from './routes/translations'
+import LanguageDataProvider from 'szlk.messages'
+import languages from './routes/languages'
+import DataConnectionFactory from './data_connection/MongooseDataConnection'
+import {readFileSync} from 'fs'
+import mongoose from 'mongoose'
+import mongoSanitize from 'express-mongo-sanitize'
 
 
 const app = express();
@@ -61,6 +62,7 @@ function addMiddleware(){
 function setupRoutes(data_connection){
   app.use('/', routes);
   app.use(translation_route_root, translations(data_connection));
+  app.use(languages_route_root, languages(language_data_provider));
 }
 
 function setupErrorHandling(){
