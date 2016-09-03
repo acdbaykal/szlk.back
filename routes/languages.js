@@ -13,7 +13,10 @@ export function  _handleMessagesRequestFactory(data_provider){//export to test
   return function(request, response){
     const lang = request.params.data;
     response.setHeader("Content-Type", "application/json");
-    response.send(data_provider(lang));
+    response.send({
+      messages:data_provider.getMessages(lang),
+      language:lang
+    });
   };
 }11
 

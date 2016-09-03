@@ -95,6 +95,42 @@ describe('DB connection functions', function(){
   })
 
   describe("updateTranslation()", function(){
+    it("shoul return {add:Promise, update:Promise} if undefined is given as parameter", function(){
+      const result = db_connection.updateTranslation(undefined);
+      expect(result).to.include.keys('add');
+      expect(result).to.include.keys('update');
+      const {add, update} = result;
+      expect(add).to.be.instanceof(Promise);
+      expect(update).to.be.instanceof(Promise);
+
+      return Promise.all([add, update]).then(
+        ([add_result, update_result]) =>{
+          expect(add_result).to.be.instanceof(Array);
+          expect(update_result).to.be.instanceof(Array);
+          expect(add_result.length).to.be.equal(0);
+          expect(update_result.length).to.be.equal(0);
+        }
+      );
+    })
+
+    it("shoul return {add:Promise, update:Promise} if an empty is array given as parameter", function(){
+      const result = db_connection.updateTranslation([]);
+      expect(result).to.include.keys('add');
+      expect(result).to.include.keys('update');
+      const {add, update} = result;
+      expect(add).to.be.instanceof(Promise);
+      expect(update).to.be.instanceof(Promise);
+
+      return Promise.all([add, update]).then(
+        ([add_result, update_result]) =>{
+          expect(add_result).to.be.instanceof(Array);
+          expect(update_result).to.be.instanceof(Array);
+          expect(add_result.length).to.be.equal(0);
+          expect(update_result.length).to.be.equal(0);
+        }
+      );
+    })
+
     it("should update an existing single translation", function(){
         const new_translation_value="updated";
         let id;
@@ -133,10 +169,11 @@ describe('DB connection functions', function(){
           const updated_translations =  existing_translations.map((tr)=>{
               tr.origin.short = new_short;
               return tr;
-          })
+          });
           const to_add = {...translation_to_add};
           to_add.origin.short = new_short;
           updated_translations.push(to_add);
+          console.log("UPDATED TRANSLATIONS: " + JSON.stringify(updated_translations, 4));
 
           const {add, update} = db_connection.updateTranslation(updated_translations);
           expect(add).to.be.instanceof(Promise);
@@ -144,6 +181,7 @@ describe('DB connection functions', function(){
           return Promise.all([add, update]);
         }).then((result_arr)=>{
           const [add_result, update_result] = result_arr;
+          console.log("UPDTE RESULT: " + JSON.stringify(update_result, "    "));
           expect(update_result).to.be.instanceof(Array);
           expect(add_result).to.be.instanceof(Array);
           expect(update_result.length).to.be.equal(existing_count);

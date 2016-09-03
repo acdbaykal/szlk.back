@@ -8,17 +8,20 @@ import routes from './routes/index'
 import translations from './routes/translations'
 import LanguageDataProvider from 'szlk.messages'
 import languages from './routes/languages'
+import login from './routes/login'
 import DataConnectionFactory from './data_connection/MongooseDataConnection'
+import validateLogin from './login/SimpleLoginValidator.js';
 import {readFileSync} from 'fs'
 import mongoose from 'mongoose'
 import mongoSanitize from 'express-mongo-sanitize'
 
-
+const cwd = process.cwd();
 const app = express();
 const env = app.get('env');
 const is_dev = env === 'development';
-const translation_route_root = '/translation/';
+const translation_route_root = '/translations/';
 const languages_route_root = '/languages/';
+const login_route_root = '/login';
 
 if(is_dev){
   console.log("RUNNING IN DEVELOPMENT MODE");
@@ -29,10 +32,8 @@ mongoose.Promise = global.Promise;
 
 function initDataConnection(){
   const db_config = (()=>{
-    if(is_dev){
-      const json_str = readFileSync('./data/dev_connection.json');
-      return JSON.parse(json_str);
-    }
+    const json_str = readFileSync(path.resolve(cwd, './data/dev_connection.json'));
+    return JSON.parse(json_str);
   })();
   const db_connection = mongoose.createConnection();
   const {uri} = db_config;
@@ -61,8 +62,9 @@ function addMiddleware(){
 
 function setupRoutes(data_connection){
   app.use('/', routes);
-  app.use(translation_route_root, translations(data_connection));
-  app.use(languages_route_root, languages(language_data_provider));
+  app.use(translation_route_root, translations(data_connection, validateLogin));
+  app.use(languages_route_root, languages(LanguageDataProvider));
+  app.use(login_route_root, login(validateLogin));
 }
 
 function setupErrorHandling(){

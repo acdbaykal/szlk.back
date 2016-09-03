@@ -1,10 +1,11 @@
-const LDP = function(){
+const LDP = {};
+LDP.getMessages = function(){
     return {
       "app.lang.german":"German",
       "app.lang.turkish":"Turkish",
       "app.lang.english":"English"
     };
-}
+};
 
 LDP.supportedLanguages = {
   "en":{

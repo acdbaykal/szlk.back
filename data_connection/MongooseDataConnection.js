@@ -1,11 +1,22 @@
 import mongoose from 'mongoose';
+const ObjectId = mongoose.Types.ObjectId;
 import log from '../global/utils/logger';
 import {createTranslationModel} from './Translation'
 import {xor} from '../global/utils/helpers'
+import _ from 'underscore'
 
 const NO_OP_PROMISE = Promise.resolve([]);
 
 const special_char_regex = /[^A-Za-z0-9\sÖÜÄöüäß]/;
+
+function _createExposedPromise(){
+  let resolve;
+  let reject;
+  const promise = new Promise((res, rej) => {resolve = res; reject = rej;});
+  return {
+    promise, resolve, reject
+  };
+}
 
 export function _escapeSpecialCharacters(str){ //export it to test it
   let exec_result;
@@ -52,10 +63,11 @@ function DataConnectionFactory(mongoose_connection, maximum_item_count=100){
     ;
     if(has_id){
       const id = translation._id || translation.id;
-      const to_return = Translation.findByIdAndRemove(id).exec();
-      to_return.then((deleted)=>{
+      const to_return = Translation.findByIdAndRemove(id).exec().then((deleted)=>{
         log.info("Deleted translation %s", deleted);
-      }).catch((err)=>{
+        return deleted;
+      });
+      to_return.catch((err)=>{
         log.info(err, "Error while trying to delete translation %s", translation);
       })
       return to_return;
@@ -66,18 +78,43 @@ function DataConnectionFactory(mongoose_connection, maximum_item_count=100){
     }
   }
 
+  /**
+  *
+  **/
   function deleteTranslation(data){
     if(data instanceof Array){
-      const promisses = [];
-      data.forEach((x) => {
-        promisses.push(deleteSingleTranslation(x));
-      });
-      return Promise.all(promisses).then((delete_result)=>{
-        return delete_result.filter(x => x !== null);
-      });
+      const delete_count  = data.length;
+      let complete_count = 0;
+      const deleted = [];
+      const {promise, resolve, rejected} = _createExposedPromise();
+      const onSingleDeleteComplete = function(result){
+        complete_count++;
+        if(typeof result !== "undefined" && result !== null && !(result instanceof Error)){
+          deleted.push(result);
+        }
+        //Errors are already handled by the deleteSingleTranslation function
+        //no else block needed
+        if(complete_count === delete_count){
+          resolve(deleted);
+        }
+      }
+
+      for(var i = 0, iLimit = delete_count; i < iLimit; i++){
+          let translation = data[i];
+          deleteSingleTranslation(translation).then(onSingleDeleteComplete).catch(
+            onSingleDeleteComplete
+          );
+      }
+      return promise;
     }
     else if (typeof data === "object") {
-      return deleteTranslation([data]);
+      try{
+        return deleteTranslation([data]);
+      }
+      catch(err){
+        log.info(err);
+        return NO_OP_PROMISE;
+      }
     }
     else{
       log.info(TypeError("Error while deleting a translation. Parameter is invalid"), data);
@@ -98,39 +135,55 @@ function DataConnectionFactory(mongoose_connection, maximum_item_count=100){
     return promise;
   }
 
-  function addMultipleTranslations(translations_arr){
+  function addMultipleTranslations(translations_arr = []){
     const promise = Translation.create(translations_arr);
     promise.catch((err)=>{
       log.info(err);
     });
-    return promise;
+    return promise.then((result) => {
+      return result === null ? [] : result;
+    });
   }
 
-  function updateMultipleTranslations(translations_arr, ids){
-    if(typeof ids === "undefined"){
-      ids = translations_arr.map((tr)=>{
-        return tr.id;
-      });
-    }
+  function updateMultipleTranslations(translations_arr = []){
+    const update_count = translations_arr.length;
+    if(update_count > 0){
+      let complete_count = 0;
+      const results = [];
+      const {promise, resolve, reject} = _createExposedPromise();
+      const onSingleUpdateComplete = (translation) => function(err, status){
+        complete_count++;
+        if(err || status.ok !== 1){
+          log.info(err, "Failed updating translation: ", translation);
+        }
+        else{
+          results.push(translation);
+        }
+        if(complete_count === update_count){
+          resolve(results);
+        }
+      };
 
-    const promise = Translation.update( {id : {"$in":ids}}, {active:false} , {multi: true}).exec().then(
-      ()=>{return translations_arr;}
-    );
-    promise.catch((err)=>{
-      log.info(err);
-    });
-    return promise;
+      for(let i = 0, iLimit = update_count; i < iLimit; i++){
+        const translation = translations_arr[i];
+        const id = ObjectId(translation._id);
+        Translation.update(
+          {"_id":id}, {"$set":_.omit(translation, "_id")}
+        ).exec(onSingleUpdateComplete(translation));
+      }
+      return promise;
+    }
+    //the array of translations was empty
+    return NO_OP_PROMISE;
   }
 
   function updateTranslation(json_data){
-    let result;
     if(json_data instanceof Array){
-      const update_ids = [];
       const to_update = [];
       const to_add=[];
       const now = new Date(); // performance over accuracy in this case
       json_data.forEach((tr)=>{
-        if(tr instanceof Translation){ // make shure we are working with a plain obj
+        if(tr instanceof Translation){ // make sure we are working with a plain obj
           tr = tr.toObject();
         }
         const {_id:id} = tr;
@@ -140,16 +193,17 @@ function DataConnectionFactory(mongoose_connection, maximum_item_count=100){
             creationDate = new Date(creationDate);
           }
           editDate = now;
-          to_update.push({...tr, creationDate, editDate});
+          to_update.push({...tr, creationDate, editDate:now});
         }
         else{
           const changed = {...tr, creationDate:now, editDate:now};
           to_add.push(tr);
         }
       });
+
       return {
-        add:addMultipleTranslations(to_add),
-        update:updateMultipleTranslations(to_update, update_ids)
+        add:addMultipleTranslations(to_add) || NO_OP_PROMISE,
+        update:updateMultipleTranslations(to_update) || NO_OP_PROMISE
       };
     }
     else if(typeof json_data === "object"){
@@ -162,8 +216,7 @@ function DataConnectionFactory(mongoose_connection, maximum_item_count=100){
       }
     }
     else{
-      logger.info(new TypeError());
-      return {add:NO_OP_PROMISE,update:NO_OP_PROMISE};
+      return {add:NO_OP_PROMISE, update:NO_OP_PROMISE};
     }
   }
 
