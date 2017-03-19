@@ -13,21 +13,12 @@ const assets_src = ['{views,public}/**/*'];
 const dest = 'dist';
 const js_src=['**/*.js', '!node_modules/**/*', '!gulp*', `!${dest}/**/*`, '!**/*.test.js'];
 const js_test_src = ['**/*.test.js', '!node_modules/**/*',];
-const front_build_dir = 'node_modules/szlk.front/dist';
-const front_js_bundle = path.resolve(front_build_dir, 'bundle.js');
-const front_css_bundle = path.resolve(front_build_dir, 'styles.css');
+const front_build_dir = 'node_modules/szlk.front.elm/build';
 
-gulp.task('build:external_js', function(){
-  return gulp.src(front_js_bundle)
+gulp.task('build:external', function(){
+  return gulp.src(front_build_dir+'/*')
     .pipe(gulp.dest(dest+'/public/').on('error', log));
 });
-
-gulp.task('build:external_css', function(){
-  return gulp.src(front_css_bundle)
-    .pipe(gulp.dest(dest+'/public/stylesheets/').on('error', log));
-});
-
-gulp.task('build:external', gulp.parallel('build:external_js', 'build:external_css'));
 
 gulp.task('build:assets', function(){
   return gulp.src(assets_src)

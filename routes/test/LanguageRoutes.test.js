@@ -6,7 +6,7 @@ import LanguageDataProvider from './LanguageDataProvider'
 import httpMocks from 'node-mocks-http'
 
 describe("Routes::/languages/*", function(){
-  const handleInitialRequest = _handleInitialRequestFactory(LanguageDataProvider);;
+  const handleInitialRequest = _handleInitialRequestFactory(LanguageDataProvider);
   const handleMessagesRequest =_handleMessagesRequestFactory(LanguageDataProvider);
 
   describe("handleInitialRequestFactory", function(){

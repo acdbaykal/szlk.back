@@ -7,8 +7,8 @@ export const TranslationSchema = mongoose.Schema({
   },
   type:{type: String, required:true},
   translation:{type: String, required:true},
-  creationDate:{type:Date, reuired:true},
-  editDate:{type:Date, reuired:true}
+  creationDate:{type:Date, required:true},
+  editDate:{type:Date, required:true}
 });
 
 export function createTranslationModel(mongoose_connection){

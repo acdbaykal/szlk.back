@@ -35,6 +35,7 @@
     "gulp-nodemon": "^2.1.0",
     "gulp-print": "^2.0.1",
     "gulp-util": "^3.0.7",
+    "gulp-webpack": "^1.5.0",
     "mocha": "^2.5.3",
     "mockgoose": "^6.0.6",
     "node-mocks-http": "^1.5.2",

@@ -6,11 +6,16 @@ export function _handleDeleteRequestFactory(data_connection, validateLogin){
     const data = req.body || req.params.data;
     const {user, pass, translations} = data;
     const login_promise = validateLogin(user, pass);
-    login_promise.catch(()=>{ res.status(505).send("Login failed")});
-    login_promise.then(
+
+    return login_promise.then(
       () => data_connection.deleteTranslation(translations)
+
     ).then((result)=>{
       res.status(200).send(result);
+      return result;
+    }).catch(() => {
+        res.status(500).send(translations);
+        return Promise.resolve([]);
     });
   }
 }
@@ -20,7 +25,7 @@ export function  _handleSearchRequestFactory(data_connection) {
     const data = req.params.data;
     return data_connection.searchTranslation(data).then((result)=>{
       res.status(200).send(result);
-    }).catch(()=>{res.status(505).send([]);});
+    }).catch(()=>{res.status(500).send([]);});
   }
 }
 
@@ -43,14 +48,16 @@ export function _handleUpdateRequestFactory(data_connection, validateLogin){
       const promise = new Promise((res) => {resolve = res.bind(this);});
       const sendResult = function(){
         if(add_complete && update_complete){
+          log.info("resolved after update: %s", JSON.stringify(resolved));
           response.status(200).send(resolved);
           resolve(resolved);
         }
-      }
+      };
 
       add.then((result)=>{
         add_complete = true;
-        arr_push.apply(resolved, result);
+        log.info("add result: %s", JSON.stringify(result));
+        arr_push.apply(resolved, result instanceof  Array ? result : [result]);
         sendResult();
       }).catch(() => {
         add_complete = true;
@@ -59,7 +66,7 @@ export function _handleUpdateRequestFactory(data_connection, validateLogin){
 
       update.then((result)=>{
         update_complete = true;
-        arr_push.apply(resolved, result);
+          arr_push.apply(resolved, result instanceof  Array ? result : [result]);
         sendResult();
       }).catch(()=>{
         update_complete = true;
@@ -70,7 +77,7 @@ export function _handleUpdateRequestFactory(data_connection, validateLogin){
     });
     main_promise.catch((err)=>{
       log.info(err);
-      response.status(505).send([]);
+      response.status(500).send([]);
     });
     return main_promise;
   }

@@ -92,7 +92,7 @@ describe('DB connection functions', function(){
       expect(promise).to.be.instanceof(Promise);
       return promise;
     })
-  })
+  });
 
   describe("updateTranslation()", function(){
     it("shoul return {add:Promise, update:Promise} if undefined is given as parameter", function(){
@@ -111,9 +111,9 @@ describe('DB connection functions', function(){
           expect(update_result.length).to.be.equal(0);
         }
       );
-    })
+    });
 
-    it("shoul return {add:Promise, update:Promise} if an empty is array given as parameter", function(){
+    it("should return {add:Promise, update:Promise} if an empty is array given as parameter", function(){
       const result = db_connection.updateTranslation([]);
       expect(result).to.include.keys('add');
       expect(result).to.include.keys('update');
@@ -129,7 +129,7 @@ describe('DB connection functions', function(){
           expect(update_result.length).to.be.equal(0);
         }
       );
-    })
+    });
 
     it("should update an existing single translation", function(){
         const new_translation_value="updated";
@@ -143,11 +143,15 @@ describe('DB connection functions', function(){
           return update_promise;
         }).then((update_result)=>{
           expect(update_result).to.be.instanceof(Array);
-          return Translation.findOne({_id:id}).exec();
+          expect(update_result.length).to.be.equal(1);
+          const updated = update_result[0];
+          expect(updated.translation).to.be.equal(new_translation_value);
+          expect(updated._id.toString()).to.be.equal(id.toString());
+          return Translation.findById(id).exec();
         }).then((result)=>{
           expect(result.translation).to.be.equal(new_translation_value);
         });
-    })
+    });
 
     it("should add a NON-existing single translation", function(){
         const {add:add_promise, update} = db_connection.updateTranslation(translation_to_add);
@@ -158,7 +162,7 @@ describe('DB connection functions', function(){
           expect(add_result.id).to.be.ok;
           expect(add_result.translation).to.be.equal(translation_to_add.translation);
         });
-    })
+    });
 
     it("should handle an array of translations by updating the existing ones and adding the new ones", function(){
         const new_short="short";
@@ -173,7 +177,6 @@ describe('DB connection functions', function(){
           const to_add = {...translation_to_add};
           to_add.origin.short = new_short;
           updated_translations.push(to_add);
-          console.log("UPDATED TRANSLATIONS: " + JSON.stringify(updated_translations, 4));
 
           const {add, update} = db_connection.updateTranslation(updated_translations);
           expect(add).to.be.instanceof(Promise);
@@ -192,9 +195,10 @@ describe('DB connection functions', function(){
           expect(
             (update_result.filter(x => x.origin.short === new_short)).length
           ).to.be.equal(existing_count);
-        })
-    })
-  })
+        });
+    });
+  });
+
   describe('deleteTranslation', ()=>{
     it('should delete all the translations within an array, which have an id '+
         'and are present in the database. It should return an array of deleted translations', ()=>{
@@ -213,8 +217,8 @@ describe('DB connection functions', function(){
           expect(delete_result).to.be.instanceof(Array);
           expect(delete_result.length).to.be.one;
           expect(delete_result[0]._id.toString()).to.be.equal(expected_result[0]._id.toString());
-        })
-    })
+        });
+    });
 
     it('should delete an existing translation and return it within an array.', ()=>{
         const expected_result=[]; // we will push an object later
@@ -226,15 +230,14 @@ describe('DB connection functions', function(){
           expect(delete_result).to.be.instanceof(Array);
           expect(delete_result.length).to.be.one;
           expect(delete_result[0]._id.toString()).to.be.equal(expected_result[0]._id.toString());
-        })
-    })
+        });
+    });
 
-    it('should return an empty array when a invalid parameter is passed.', ()=>{
-      return db_connection.deleteTranslation("invalid parameter").then((delete_result)=>{
-          expect(delete_result).to.be.instanceof(Array);
-          expect(delete_result.length).to.be.equal(0);
-      })
-    })
+    it('should return a rejected promise a if an invalid parameter is passed.', ()=>{
+      return db_connection.deleteTranslation("invalid parameter").catch((err)=>{
+          expect(err).to.be.instanceof(TypeError);
+      });
+    });
 
     it('should return an empty array when a non-exiting translation is passed.', ()=>{
       return db_connection.deleteTranslation(new Translation(translation_to_add)).then((delete_result)=>{
@@ -242,7 +245,7 @@ describe('DB connection functions', function(){
 
           expect(delete_result).to.be.instanceof(Array);
           expect(delete_result.length).to.be.equal(0);
-      })
-    })
-  })
+      });
+    });
+  });
 });

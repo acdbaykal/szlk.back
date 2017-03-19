@@ -47,11 +47,17 @@ function DataConnectionFactory(mongoose_connection, maximum_item_count=100){
   }
 
   function addSingleTranslation(json_data){
-      const translation = new Translation(json_data);
-      const promise = translation.save();
-      promise.then((result)=>{
+      log.info("Attempt to add single translation to database");
+      const creationDate = new Date();
+      const editDate = new Date();
+      const finalData = {...json_data, creationDate, editDate};
+
+      const translation = new Translation(finalData);
+      const promise = translation.save().then((result)=>{
         log.info('Added translation %s', result);
-      }).catch((err)=>{
+        return result;
+      });
+      promise.catch((err)=>{
         log.info(err);
       });
       return promise;
@@ -63,18 +69,21 @@ function DataConnectionFactory(mongoose_connection, maximum_item_count=100){
     ;
     if(has_id){
       const id = translation._id || translation.id;
-      const to_return = Translation.findByIdAndRemove(id).exec().then((deleted)=>{
-        log.info("Deleted translation %s", deleted);
-        return deleted;
-      });
+      const to_return = Translation.findByIdAndRemove(id).exec().then(
+          (deleted)=>{
+            log.info("Deleted translation %s", deleted);
+            return deleted;
+          }
+      );
       to_return.catch((err)=>{
         log.info(err, "Error while trying to delete translation %s", translation);
-      })
+      });
       return to_return;
     }
     else{
-      log.info(new TypeError("Error while trying to delete a translation: Translation is missing an id"), translation);
-      return Promise.resolve(null); // mangoose also returns null, when a  document has not been deleted
+        const err = new TypeError("Error while trying to delete a translation: Translation is missing an id");
+      log.info(err, translation);
+      return Promise.reject(err); // mangoose also returns null, when a  document has not been deleted
     }
   }
 
@@ -97,11 +106,13 @@ function DataConnectionFactory(mongoose_connection, maximum_item_count=100){
         if(complete_count === delete_count){
           resolve(deleted);
         }
-      }
+      };
 
       for(var i = 0, iLimit = delete_count; i < iLimit; i++){
-          let translation = data[i];
-          deleteSingleTranslation(translation).then(onSingleDeleteComplete).catch(
+          const translation = data[i];
+          deleteSingleTranslation(translation).then(
+              onSingleDeleteComplete
+          ).catch(
             onSingleDeleteComplete
           );
       }
@@ -112,21 +123,28 @@ function DataConnectionFactory(mongoose_connection, maximum_item_count=100){
         return deleteTranslation([data]);
       }
       catch(err){
-        log.info(err);
-        return NO_OP_PROMISE;
+          const err = TypeError("Error while deleting a translation. Parameter is invalid")
+          log.info(err , data);
+          return Promise.reject(err);
       }
     }
     else{
-      log.info(TypeError("Error while deleting a translation. Parameter is invalid"), data);
-      return NO_OP_PROMISE;
+        const err = TypeError("Error while deleting a translation. Parameter is invalid")
+        log.info(err , data);
+        return Promise.reject(err);
     }
   }
 
   function updateSingleTranslation(json_data){
-    const query = {_id :json_data.id};
-    const promise = Translation.update(query, json_data).exec().then(()=>{
-      return [json_data];
-    });
+    const id = json_data._id || json_data.id;
+    const query = {_id : id};
+    const promise = Translation.update(query, json_data).exec().then(
+        () => {
+          const obj = json_data instanceof Translation ?
+              json_data.toObject() : json_data;
+          return [{...obj, _id: id}]
+        }
+    );
     promise.then((result)=>{
       log.info('Updated translation %s', result);
     }).catch((err)=>{
@@ -136,12 +154,18 @@ function DataConnectionFactory(mongoose_connection, maximum_item_count=100){
   }
 
   function addMultipleTranslations(translations_arr = []){
-    const promise = Translation.create(translations_arr);
+    const dated = translations_arr.map((translation) => {
+        const now = new Date();
+        return {
+            ...translation, creationDate : now, editDate: now
+        };
+    });
+    const promise = Translation.create(dated);
     promise.catch((err)=>{
       log.info(err);
     });
-    return promise.then((result) => {
-      return result === null ? [] : result;
+    return promise.then((results) => {
+      return !results ? [] : results;
     });
   }
 
@@ -186,7 +210,7 @@ function DataConnectionFactory(mongoose_connection, maximum_item_count=100){
         if(tr instanceof Translation){ // make sure we are working with a plain obj
           tr = tr.toObject();
         }
-        const {_id:id} = tr;
+        const id = tr._id || tr.id;
         if(typeof id !== "undefined"){
           let {creationDate, editDate} = tr;
           if(typeof creationDate === "string"){
@@ -207,7 +231,8 @@ function DataConnectionFactory(mongoose_connection, maximum_item_count=100){
       };
     }
     else if(typeof json_data === "object"){
-      const has_id = typeof json_data._id !== "undefined";
+      const id = json_data._id || json_data.id;
+      const has_id = typeof id !== "undefined";
       if(has_id){
         return {add:NO_OP_PROMISE, update:updateSingleTranslation(json_data)};
       }
